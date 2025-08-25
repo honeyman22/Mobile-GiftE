@@ -1,17 +1,44 @@
+import api from "@/api/api";
 import ParallaxScrollView from "@/components/ParallaxScrollView";
 import CustomInput from "@/components/reusable/CustomInput";
 import { AuthSchema } from "@/schema/auth-schema";
 import { yupResolver } from "@hookform/resolvers/yup";
 import { Image } from "expo-image";
+import { useRouter } from "expo-router";
+import * as SecureStore from "expo-secure-store";
 import { useForm } from "react-hook-form";
-import { Button, View } from "react-native";
+import { Button, Platform, View } from "react-native";
 
+async function save(key: string, value: string) {
+  if (Platform.OS === "web") {
+    localStorage.setItem(key, value); // fallback
+  } else {
+    await SecureStore.setItemAsync(key, value);
+  }
+}
 export default function HomeScreen() {
   const {
     control,
     handleSubmit,
     formState: { errors },
   } = useForm({ resolver: yupResolver(AuthSchema) });
+  const router = useRouter();
+  const handleLogin = async (data: any) => {
+    const response = await api
+      .post("login", data)
+      .then((res) => res)
+      .catch((err) => err.response);
+    try {
+      if (response.status === 201) {
+        save("token", JSON.stringify(response.data.data.accessToken));
+        router.replace("/explore");
+      } else {
+        console.log("Login failed:", response.data);
+      }
+    } catch (error) {
+      console.error("An unexpected error occurred:", error);
+    }
+  };
 
   return (
     <ParallaxScrollView
@@ -41,7 +68,7 @@ export default function HomeScreen() {
         />
         <Button
           title="Submit"
-          onPress={handleSubmit((data) => console.log(data))}
+          onPress={handleSubmit((data) => handleLogin(data))}
         />
       </View>
     </ParallaxScrollView>
