@@ -1,110 +1,123 @@
-import { Image } from 'expo-image';
-import { Platform, StyleSheet } from 'react-native';
+import React, { useCallback, useMemo, useRef, useState } from "react";
+import { ActivityIndicator, Alert, Button, View } from "react-native";
+import { WebView } from "react-native-webview";
 
-import { Collapsible } from '@/components/Collapsible';
-import { ExternalLink } from '@/components/ExternalLink';
-import ParallaxScrollView from '@/components/ParallaxScrollView';
-import { ThemedText } from '@/components/ThemedText';
-import { ThemedView } from '@/components/ThemedView';
-import { IconSymbol } from '@/components/ui/IconSymbol';
+const BACKEND_BASE = "http://localhost:3000"; // change for device testing (use your LAN IP or tunnel)
 
-export default function TabTwoScreen() {
+export default function PayWithKhalti() {
+  const [pidx, setPidx] = useState<string | null>(null);
+  const [paymentUrl, setPaymentUrl] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+  const webviewRef = useRef<WebView>(null);
+
+  const returnUrlHost = useMemo(() => {
+    // Should match your KHALTI_RETURN_URL host; we’ll detect it in WebView
+    // e.g. https://your-frontend-app.com/khalti-return
+    return "your-frontend-app.com"; // change this to your actual return host
+  }, []);
+
+  const startPayment = useCallback(async () => {
+    console.log("Starting payment...");
+    setLoading(true);
+    try {
+      const res = await fetch(
+        `https://finance-backend-alc7.onrender.com/api/v1/khalti/initiate-payments`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            amount: 25000, // paisa
+            purchase_order_id: "12345",
+            purchase_order_name: "Test Order",
+            return_url: `https://www.nishan-bhattarai.com.np/`,
+            website_url: `https://example.com`,
+          }),
+        }
+      );
+      console.log("Response status:", res.status);
+
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(typeof data === "string" ? data : JSON.stringify(data));
+      }
+
+      setPidx(data.pidx);
+      setPaymentUrl(data.payment_url);
+    } catch (err: any) {
+      Alert.alert("Init failed", err?.message || "Unknown error");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  const verifyPayment = useCallback(async () => {
+    if (!pidx) return;
+    try {
+      const res = await fetch(`${BACKEND_BASE}/payments/verify`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ pidx }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(typeof data === "string" ? data : JSON.stringify(data));
+      }
+
+      // data.status can be Completed | Pending | Refunded | Expired | Canceled
+      if (data.status === "Completed") {
+        Alert.alert(
+          "Payment Success",
+          `Transaction ID: ${data.transaction_id || ""}`
+        );
+      } else {
+        Alert.alert("Payment Status", data.status);
+      }
+    } catch (err: any) {
+      Alert.alert("Verify failed", err?.message || "Unknown error");
+    } finally {
+      setPidx(null);
+      setPaymentUrl(null);
+    }
+  }, [pidx]);
+
+  const onNavStateChange = useCallback(
+    (navState: any) => {
+      // When Khalti redirects to return_url, we detect it and trigger verify.
+      try {
+        const url = new URL(navState.url);
+        if (url.host === returnUrlHost) {
+          // We reached return_url — safe to verify
+          verifyPayment();
+        }
+      } catch {
+        // ignore URL parse issues
+      }
+    },
+    [returnUrlHost, verifyPayment]
+  );
+
+  if (loading) {
+    return (
+      <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}>
+        <ActivityIndicator />
+      </View>
+    );
+  }
+
+  if (paymentUrl) {
+    return (
+      <WebView
+        ref={webviewRef}
+        source={{ uri: paymentUrl }}
+        onNavigationStateChange={onNavStateChange}
+        startInLoadingState
+      />
+    );
+  }
+
   return (
-    <ParallaxScrollView
-      headerBackgroundColor={{ light: '#D0D0D0', dark: '#353636' }}
-      headerImage={
-        <IconSymbol
-          size={310}
-          color="#808080"
-          name="chevron.left.forwardslash.chevron.right"
-          style={styles.headerImage}
-        />
-      }>
-      <ThemedView style={styles.titleContainer}>
-        <ThemedText type="title">Explore</ThemedText>
-      </ThemedView>
-      <ThemedText>This app includes example code to help you get started.</ThemedText>
-      <Collapsible title="File-based routing">
-        <ThemedText>
-          This app has two screens:{' '}
-          <ThemedText type="defaultSemiBold">app/(tabs)/index.tsx</ThemedText> and{' '}
-          <ThemedText type="defaultSemiBold">app/(tabs)/explore.tsx</ThemedText>
-        </ThemedText>
-        <ThemedText>
-          The layout file in <ThemedText type="defaultSemiBold">app/(tabs)/_layout.tsx</ThemedText>{' '}
-          sets up the tab navigator.
-        </ThemedText>
-        <ExternalLink href="https://docs.expo.dev/router/introduction">
-          <ThemedText type="link">Learn more</ThemedText>
-        </ExternalLink>
-      </Collapsible>
-      <Collapsible title="Android, iOS, and web support">
-        <ThemedText>
-          You can open this project on Android, iOS, and the web. To open the web version, press{' '}
-          <ThemedText type="defaultSemiBold">w</ThemedText> in the terminal running this project.
-        </ThemedText>
-      </Collapsible>
-      <Collapsible title="Images">
-        <ThemedText>
-          For static images, you can use the <ThemedText type="defaultSemiBold">@2x</ThemedText> and{' '}
-          <ThemedText type="defaultSemiBold">@3x</ThemedText> suffixes to provide files for
-          different screen densities
-        </ThemedText>
-        <Image source={require('@/assets/images/react-logo.png')} style={{ alignSelf: 'center' }} />
-        <ExternalLink href="https://reactnative.dev/docs/images">
-          <ThemedText type="link">Learn more</ThemedText>
-        </ExternalLink>
-      </Collapsible>
-      <Collapsible title="Custom fonts">
-        <ThemedText>
-          Open <ThemedText type="defaultSemiBold">app/_layout.tsx</ThemedText> to see how to load{' '}
-          <ThemedText style={{ fontFamily: 'SpaceMono' }}>
-            custom fonts such as this one.
-          </ThemedText>
-        </ThemedText>
-        <ExternalLink href="https://docs.expo.dev/versions/latest/sdk/font">
-          <ThemedText type="link">Learn more</ThemedText>
-        </ExternalLink>
-      </Collapsible>
-      <Collapsible title="Light and dark mode components">
-        <ThemedText>
-          This template has light and dark mode support. The{' '}
-          <ThemedText type="defaultSemiBold">useColorScheme()</ThemedText> hook lets you inspect
-          what the user&apos;s current color scheme is, and so you can adjust UI colors accordingly.
-        </ThemedText>
-        <ExternalLink href="https://docs.expo.dev/develop/user-interface/color-themes/">
-          <ThemedText type="link">Learn more</ThemedText>
-        </ExternalLink>
-      </Collapsible>
-      <Collapsible title="Animations">
-        <ThemedText>
-          This template includes an example of an animated component. The{' '}
-          <ThemedText type="defaultSemiBold">components/HelloWave.tsx</ThemedText> component uses
-          the powerful <ThemedText type="defaultSemiBold">react-native-reanimated</ThemedText>{' '}
-          library to create a waving hand animation.
-        </ThemedText>
-        {Platform.select({
-          ios: (
-            <ThemedText>
-              The <ThemedText type="defaultSemiBold">components/ParallaxScrollView.tsx</ThemedText>{' '}
-              component provides a parallax effect for the header image.
-            </ThemedText>
-          ),
-        })}
-      </Collapsible>
-    </ParallaxScrollView>
+    <View style={{ flex: 1, padding: 24, justifyContent: "center" }}>
+      <Button title="Pay with Khalti" onPress={startPayment} />
+    </View>
   );
 }
-
-const styles = StyleSheet.create({
-  headerImage: {
-    color: '#808080',
-    bottom: -90,
-    left: -35,
-    position: 'absolute',
-  },
-  titleContainer: {
-    flexDirection: 'row',
-    gap: 8,
-  },
-});
