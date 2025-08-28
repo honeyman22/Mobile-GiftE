@@ -1,10 +1,14 @@
+import SwipperBanner from "@/components/home/SwipperBanner";import ValentineBanner from "@/components/home/ValentineBanmner";
 import React from "react";
-import { Text, View } from "react-native";
+import { View } from "react-native";
 
 const Flowers = () => {
   return (
-    <View>
-      <Text>Flowers</Text>
+    <View className="p-4 flex h-full flex-col gap-8">
+      <ValentineBanner />
+      <View className=" h-52">
+        <SwipperBanner />
+      </View>
     </View>
   );
 };
