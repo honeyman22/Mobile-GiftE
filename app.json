@@ -4,7 +4,7 @@
     "slug": "yup-reactnative",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/images/icon.png",
+    "icon": "./assets/favicon/android-chrome-512x512.png",
     "scheme": "yupreactnative",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
@@ -16,12 +16,13 @@
         "foregroundImage": "./assets/images/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
-      "edgeToEdgeEnabled": true
+      "edgeToEdgeEnabled": true,
+      "package": "com.donjimmy22.yupreactnative"
     },
     "web": {
       "bundler": "metro",
       "output": "static",
-      "favicon": "./assets/images/favicon.png"
+      "favicon": "./assets/favicon/favicon.ico"
     },
     "plugins": [
       "expo-router",
